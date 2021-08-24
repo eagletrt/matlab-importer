@@ -1,0 +1,35 @@
+[21-Jun-2021 09:46:42]: IMPORT PROCESS STARTED
+[21-Jun-2021 09:46:42]: gps.gga.timestamp imported
+[21-Jun-2021 09:46:42]: gps.gga.value.latitude_safe imported
+[21-Jun-2021 09:46:42]: gps.gga.value.longitude_safe imported
+[21-Jun-2021 09:46:42]: gps.gga.value.latitude imported
+[21-Jun-2021 09:46:42]: gps.gga.value.longitude imported
+[21-Jun-2021 09:46:42]: gps.gga.value.altitude imported
+[21-Jun-2021 09:46:42]: gps.gga.value.ns_indicator imported
+[21-Jun-2021 09:46:42]: gps.gga.value.ns_indicator NOT IMPORTED Invalid property name
+[21-Jun-2021 09:46:42]: gps.gga.value.ew_indicator imported
+[21-Jun-2021 09:46:42]: gps.gga.value.ew_indicator NOT IMPORTED Invalid property name
+[21-Jun-2021 09:46:42]: gps.gga.value.utc_time NOT IMPORTED because timestamp and value vectors have different size
+[21-Jun-2021 09:46:43]: gps.gll.timestamp imported
+[21-Jun-2021 09:46:43]: gps.gll.value.latitude imported
+[21-Jun-2021 09:46:43]: gps.gll.value.longitude imported
+[21-Jun-2021 09:46:43]: gps.gll.value.ns_indicator imported
+[21-Jun-2021 09:46:43]: gps.gll.value.ns_indicator NOT IMPORTED Invalid property name
+[21-Jun-2021 09:46:43]: gps.gll.value.ew_indicator imported
+[21-Jun-2021 09:46:43]: gps.gll.value.ew_indicator NOT IMPORTED Invalid property name
+[21-Jun-2021 09:46:43]: gps.gll.value.utc_time NOT IMPORTED because timestamp and value vectors have different size
+[21-Jun-2021 09:46:43]: gps.vtg.timestamp imported
+[21-Jun-2021 09:46:43]: gps.vtg.value.ground_speed_knots imported
+[21-Jun-2021 09:46:43]: gps.vtg.value.ground_speed_human imported
+[21-Jun-2021 09:46:43]: gps.rmc.timestamp imported
+[21-Jun-2021 09:46:43]: gps.rmc.value.latitude imported
+[21-Jun-2021 09:46:43]: gps.rmc.value.longitude imported
+[21-Jun-2021 09:46:43]: gps.rmc.value.ns_indicator imported
+[21-Jun-2021 09:46:43]: gps.rmc.value.ns_indicator NOT IMPORTED Invalid property name
+[21-Jun-2021 09:46:43]: gps.rmc.value.ew_indicator imported
+[21-Jun-2021 09:46:43]: gps.rmc.value.ew_indicator NOT IMPORTED Invalid property name
+[21-Jun-2021 09:46:43]: gps.rmc.value.utc_time NOT IMPORTED because timestamp and value vectors have different size
+[21-Jun-2021 09:46:43]: gps.rmc.value.date NOT IMPORTED because timestamp and value vectors have different size
+[21-Jun-2021 09:46:43]: gps.rmc.value.ground_speed_knots imported
+[21-Jun-2021 09:46:43]: IMPORT PROCESS COMPLETED in 1.6474 s
+

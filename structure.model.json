@@ -1,0 +1,309 @@
+{
+    "id": "int",
+    "timestamp": "long",
+    "sessionName": "char*",
+    "inverters": {
+        "right": {
+            "speed": [
+                {
+                    "timestamp": "long",
+                    "value": "double",
+                    "maxLength": 500
+                }
+            ],
+            "temperature_igbt": [
+                {
+                    "timestamp": "long",
+                    "value": "double",
+                    "maxLength": 500
+                }
+            ],
+            "temperature_motors": [
+                {
+                    "timestamp": "long",
+                    "value": "double",
+                    "maxLength": 500
+                }
+            ],
+            "torque": [
+                {
+                    "timestamp": "long",
+                    "value": "double",
+                    "maxLength": 500
+                }
+            ]
+        },
+        "left": {
+            "speed": [
+                {
+                    "timestamp": "long",
+                    "value": "double",
+                    "maxLength": 500
+                }
+            ],
+            "temperature_igbt": [
+                {
+                    "timestamp": "long",
+                    "value": "double",
+                    "maxLength": 500
+                }
+            ],
+            "temperature_motors": [
+                {
+                    "timestamp": "long",
+                    "value": "double",
+                    "maxLength": 500
+                }
+            ],
+            "torque": [
+                {
+                    "timestamp": "long",
+                    "value": "double",
+                    "maxLength": 500
+                }
+            ]
+        }
+    },
+    "bms_hv": {
+        "temperature": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "max": "double",
+                    "min": "double",
+                    "average": "double"
+                },
+                "maxLength": 500
+            }
+        ],
+        "voltage": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "max": "double",
+                    "min": "double",
+                    "total": "double"
+                },
+                "maxLength": 500
+            }
+        ],
+        "current": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "current": "double",
+                    "pow": "double"
+                },
+                "maxLength": 500
+            }
+        ],
+        "errors": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "fault_id": "int",
+                    "fault_index": "int"
+                },
+                "maxLength": 500
+            }
+        ],
+        "warnings": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "fault_id": "int",
+                    "fault_index": "int"
+                },
+                "maxLength": 500
+            }
+        ]
+    },
+    "bms_lv": {
+        "values": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "voltage": "double",
+                    "temperature": "double"
+                },
+                "maxLength": 500
+            }
+        ],
+        "errors": [
+            {
+                "timestamp": "long",
+                "value": "int",
+                "maxLength": 500
+            }
+        ]
+    },
+    "gps": {
+        "gga": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "latitude_safe": "double",
+                    "longitude_safe": "double",
+                    "latitude": "double",
+                    "longitude": "double",
+                    "altitude": "double",
+                    "ns_indicator": "char*",
+                    "ew_indicator": "char*",
+                    "utc_time": "char*"
+                },
+                "maxLength": 500
+            }
+        ],
+        "gll": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "latitude": "double",
+                    "longitude": "double",
+                    "ns_indicator": "char*",
+                    "ew_indicator": "char*",
+                    "utc_time": "char*"
+                },
+                "maxLength": 500
+            }
+        ],
+        "vtg": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "ground_speed_knots": "double",
+                    "ground_speed_human": "double"
+                },
+                "maxLength": 500
+            }
+        ],
+        "rmc": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "latitude": "double",
+                    "longitude": "double",
+                    "ns_indicator": "char*",
+                    "ew_indicator": "char*",
+                    "utc_time": "char*",
+                    "date": "char*",
+                    "ground_speed_knots": "double"
+                },
+                "maxLength": 500
+            }
+        ]
+    },
+    "imu_old": {
+        "gyro": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "x": "double",
+                    "y": "double",
+                    "z": "double",
+                    "scale": "double"
+                },
+                "maxLength": 500
+            }
+        ],
+        "accel": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "x": "double",
+                    "y": "double",
+                    "z": "double",
+                    "scale": "double"
+                },
+                "maxLength": 500
+            }
+        ]
+    },
+    "imu": {
+        "gyro": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "x": "double",
+                    "y": "double",
+                    "z": "double"
+                },
+                "maxLength": 500
+            }
+        ],
+        "accel": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "x": "double",
+                    "y": "double",
+                    "z": "double"
+                },
+                "maxLength": 500
+            }
+        ]
+    },
+    "front_wheels_encoders": {
+        "speed_rads": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "left": "double",
+                    "right": "double"
+                },
+                "maxLength": 500
+            }
+        ],
+        "rotation_and_km": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "rotations": "double",
+                    "km": "double"
+                },
+                "maxLength": 500
+            }
+        ]
+    },
+    "pedals": {
+        "throttle": [
+            {
+                "timestamp": "long",
+                "value": "int",
+                "maxLength": 500
+            }
+        ],
+        "brake": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "is_breaking": "int",
+                    "pressure_front": "double",
+                    "pressure_back": "double"
+                },
+                "maxLength": 500
+            }
+        ]
+    },
+    "steering_wheel": {
+        "encoder": [
+            {
+                "timestamp": "long",
+                "value": "double",
+                "maxLength": 500
+            }
+        ],
+        "gears": [
+            {
+                "timestamp": "long",
+                "value": {
+                    "control": "int",
+                    "cooling": "int",
+                    "map": "int"
+                },
+                "maxLength": 500
+            }
+        ],
+        "marker": "int"
+    }
+}
