@@ -1,0 +1,1587 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pStyle w:val="code"/></w:pPr><w:r><w:t><![CDATA[classdef main < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        ImporterUIFigure              matlab.ui.Figure
+        FileMenu                      matlab.ui.container.Menu
+        SaveMenu                      matlab.ui.container.Menu
+        TuttoMenu_sv                  matlab.ui.container.Menu
+        ParametriveicoloMenu_sv       matlab.ui.container.Menu
+        AlberovariabiliMenu_sv        matlab.ui.container.Menu
+        SetasdefaultMenu              matlab.ui.container.Menu
+        SetAsDefaultVariablesMenu     matlab.ui.container.Menu
+        SetAsDefaultVeichleMenu       matlab.ui.container.Menu
+        EsciMenu                      matlab.ui.container.Menu
+        TabGroup                      matlab.ui.container.TabGroup
+        ImportTab                     matlab.ui.container.Tab
+        TabGroup2                     matlab.ui.container.TabGroup
+        RemoteTab                     matlab.ui.container.Tab
+        GridLayout5                   matlab.ui.container.GridLayout
+        DatabaseconnectionstateLabel  matlab.ui.control.Label
+        DBstateLabel                  matlab.ui.control.Label
+        ConnectButton                 matlab.ui.control.Button
+        AvaiblecollectionsDropDownLabel  matlab.ui.control.Label
+        AvaiblecollectionsDropDown    matlab.ui.control.DropDown
+        AvaiblesessionsDropDownLabel  matlab.ui.control.Label
+        AvaiblesessionsDropDown       matlab.ui.control.DropDown
+        ImportButton                  matlab.ui.control.Button
+        LaunchplotterButton           matlab.ui.control.Button
+        DBsettingsTab                 matlab.ui.container.Tab
+        GridLayout4                   matlab.ui.container.GridLayout
+        HostEditFieldLabel            matlab.ui.control.Label
+        HostEditField                 matlab.ui.control.EditField
+        PortEditFieldLabel            matlab.ui.control.Label
+        PortEditField                 matlab.ui.control.EditField
+        UsernameLabel                 matlab.ui.control.Label
+        UsernameEditField             matlab.ui.control.EditField
+        PasswordLabel                 matlab.ui.control.Label
+        PasswordEditField             matlab.ui.control.EditField
+        DatabaseEditFieldLabel        matlab.ui.control.Label
+        DatabaseEditField             matlab.ui.control.EditField
+        Save_dbButton                 matlab.ui.control.Button
+        VariablesTab                  matlab.ui.container.Tab
+        GridLayout                    matlab.ui.container.GridLayout
+        GridLayout2                   matlab.ui.container.GridLayout
+        LoadButton_var                matlab.ui.control.Button
+        SaveButton_var                matlab.ui.control.Button
+        ImportstructureButton         matlab.ui.control.Button
+        VariablesTable                matlab.ui.control.Table
+        Label2                        matlab.ui.control.Label
+        VeichleTab                    matlab.ui.container.Tab
+        GridLayout3                   matlab.ui.container.GridLayout
+        enc_varEditFieldLabel         matlab.ui.control.Label
+        enc_varEditField              matlab.ui.control.NumericEditField
+        acc_varEditFieldLabel         matlab.ui.control.Label
+        acc_varEditField              matlab.ui.control.NumericEditField
+        R_rEditFieldLabel             matlab.ui.control.Label
+        R_rEditField                  matlab.ui.control.NumericEditField
+        R_fEditFieldLabel             matlab.ui.control.Label
+        R_fEditField                  matlab.ui.control.NumericEditField
+        W_fEditFieldLabel             matlab.ui.control.Label
+        W_fEditField                  matlab.ui.control.NumericEditField
+        LEditFieldLabel               matlab.ui.control.Label
+        LEditField                    matlab.ui.control.NumericEditField
+        LoadButton_vei                matlab.ui.control.Button
+        SaveButton_vei                matlab.ui.control.Button
+        W_rEditFieldLabel             matlab.ui.control.Label
+        W_rEditField                  matlab.ui.control.NumericEditField
+        ResampleTab                   matlab.ui.container.Tab
+        GridLayout6                   matlab.ui.container.GridLayout
+        ResLabel                      matlab.ui.control.Label
+        GridLayout7                   matlab.ui.container.GridLayout
+        SelectfileButton              matlab.ui.control.Button
+        ResampleButton                matlab.ui.control.Button
+        ResampleTable                 matlab.ui.control.Table
+    end
+
+    
+    properties (Access = private)
+        tabledata
+        conn
+        sessions
+        state_var %true if alla data in variables are saved
+        state_vei %true if all data in veichle are saved
+        time
+        dataStruct % Description
+        sensors % Description
+        savePath % Description
+        plotterApp % Description
+    end
+    
+    methods (Access = private)
+        function import_data(app,importFid)
+            count=0;
+            data = app.VariablesTable.Data;
+            variables = table(data{:,2},app.tabledata{:,2},app.tabledata{:,3},app.tabledata{:,4},data{:,3},data{:,4},data{:,5});
+            dimVar = size(variables);
+            fprintf(importFid, '[%s]: %s\n', datestr(now, 0),'IMPORT PROCESS STARTED');
+            tic;
+            query = strcat('{sessionName : "',app.AvaiblesessionsDropDown.Value,'", id :{$gt: 0 }}');
+            for i = 1:dimVar(1,1)
+                if variables{i,7} == true
+                    count=count+1;
+                end
+            end
+            step=1/count;
+            progressVal=0;
+            progress=waitbar(progressVal,'Loading data...','WindowStyle','modal','Name','Import process');
+            batchsize = 180;
+            for i = 1:dimVar(1,1)
+                if variables{i,7} == true
+                    if i == 1 || string(variables{i,4}) == "" || string(variables{i-1,2}) ~= string(variables{i,2})
+                        timestamp=[];
+                        resultT=[];
+                        fieldT = string(strcat('{"',variables{i,3},'.timestamp":1.0 , _id:0}'));
+                        index = 0;
+                        localdata=1;
+                        while size(localdata)>0
+                            localdata = find(app.conn,app.AvaiblecollectionsDropDown.Value,'Query',query,'Projection',fieldT,'Skip',index,'Limit',batchsize);
+                            resultT = [resultT; localdata];
+                            index = index + batchsize;
+                        end
+%                         resultT = find(app.conn,app.AvaiblecollectionsDropDown.Value,'Query',query,'Projection',fieldT);
+                        for document = each(resultT)
+                            splittedPath=split(variables{i,3},".");
+                            dimStr  = size(splittedPath);
+                            switch dimStr(1)
+                                case 1
+                                    for element= each(document.(splittedPath{1}))
+                                        tmstp=element.timestamp.x_numberLong;
+                                        tmstp=str2double(tmstp);                %timestamp is imported as a string so needs to be converted to double
+                                        tmstp=tmstp/1000;                       %required for conversion to date (reduce precisione from e+12 to e+09)
+                                        timestamp=[timestamp; tmstp];
+                                    end
+                                case 2
+                                    for element= each(document.(splittedPath{1}).(splittedPath{2}))
+                                        tmstp=element.timestamp.x_numberLong;
+                                        tmstp=str2double(tmstp);
+                                        tmstp=tmstp/1000;
+                                        timestamp=[timestamp; tmstp];
+                                    end
+                                case 3
+                                        for element= each(document.(splittedPath{1}).(splittedPath{2}).(splittedPath{3}))
+                                            tmstp=element.timestamp.x_numberLong;
+                                            tmstp=str2double(tmstp);
+                                            tmstp=tmstp/1000;
+                                            timestamp=[timestamp; tmstp];
+                                        end
+                                    
+                                otherwise
+                                    answare=questdlg('Path size exceds the maximum default size of 3, do you want to continue anyway? (It is suggested to stop the process and check the configuration)','Warning','No');
+                                    if answare=="Yes"
+                                        for element= each(eval(strcat("document.",variables{i,3})))
+                                            tmstp=element.timestamp.x_numberLong;
+                                            tmstp=str2double(tmstp);
+                                            tmstp=tmstp/1000;
+                                            timestamp=[timestamp; tmstp];
+                                        end
+                                        fprintf(importFid, '[%s]: %s\n%s\n\n', datestr(now, 0),string(variables{i,3}),'path size exceded the maximum of 3 but the user choose proceed anyway');
+                                    else
+                                        fid = fopen('error_log.txt', 'a');
+                                        if fid == -1
+                                            errordlg('Cannot open log file','Log error');
+                                        else
+                                            fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'import_data function','path size exceded the maximum of 3 and the user choose to stop the import process');
+                                            fclose(fid);
+                                        end
+                                        fprintf(importFid, '[%s]: %s\n%s\n\n', datestr(now, 0),string(variables{i,3}),'path size exceded the maximum of 3 and the user choose to stop the import process');
+                                        errordlg('Import process has been stopped, please check configuration and try again','Fatal error');
+                                        error('Fatal error')
+                                    end
+                            end
+                            
+                        end
+                        fprintf(importFid, '[%s]: %s%s\n', datestr(now, 0),string(variables{i,3}),'.timestamp imported');
+                    end
+                    if size(timestamp)==0
+                        fid = fopen('error_log.txt', 'a');
+                        if fid == -1
+                            errordlg('Cannot open log file','Log error');
+                        else
+                            fprintf(fid, '[%s]: %s%s\n%s\n', datestr(now, 0),'import_data function',strcat(' (',string(variables{i,2}),')'),'NOT IMPORTED because timestamp vector is empty');
+                            fclose(fid);
+                        end
+                        if variables{i,4}==""
+                            fprintf(importFid, '[%s]: %s%s\n', datestr(now, 0),string(variables{i,2}),' NOT IMPORTED because timestamp vector is empty');
+                        else
+                            fprintf(importFid, '[%s]: %s%s%s%s\n', datestr(now, 0),string(variables{i,2}),'.',string(variables{i,4}),' NOT IMPORTED because timestamp vector is empty');
+                        end
+                    else
+                        value=[];
+                        resultV=[];
+                        fieldV = string(strcat('{"',variables{i,2},'":1.0 , _id:0}'));
+                        index = 0;
+                        localdata=1;
+                        while size(localdata)>0
+                            localdata = find(app.conn,app.AvaiblecollectionsDropDown.Value,'Query',query,'Projection',fieldV,'Skip',index,'Limit',batchsize);
+                            resultV = [resultV; localdata];
+                            index = index + batchsize;
+                        end
+%                         resultV = find(app.conn,app.AvaiblecollectionsDropDown.Value,'Query',query,'Projection',fieldV);
+                        for document = each(resultV)
+                            imp_error=0;
+                            splittedPath=split(variables{i,3},".");
+                            dimStr  = size(splittedPath);
+                            switch dimStr(1)
+                                case 1
+                                    try
+                                        if variables{i,4}==""
+                                            for element= each(document.(splittedPath{1}))
+                                                value=[value; element.value];
+                                            end
+                                        else
+                                            for element= each(document.(splittedPath{1}))
+                                                value=[value; element.value.(string(variables{i,4}))];
+                                            end
+                                        end
+                                        
+                                    catch ME
+                                        fprintf(importFid, '\n[%s]: %s%s%s%s\n%s\n\n', datestr(now, 0),string(variables{i,2}),'.',string(variables{i,4}),'one element has NOT been imported: ',getReport(ME,'basic'));
+                                        imp_error=1;
+                                        break;
+                                    end
+                                case 2
+                                    try
+                                        if variables{i,4}==""
+                                            for element= each(document.(splittedPath{1}).(splittedPath{2}))
+                                                value=[value; element.value];
+                                            end
+                                        else
+                                            for element= each(document.(splittedPath{1}).(splittedPath{2}))
+                                                value=[value; element.value.(string(variables{i,4}))];
+                                            end
+                                        end
+                                    catch ME
+                                        fprintf(importFid, '\n[%s]: %s%s%s%s\n%s\n\n', datestr(now, 0),string(variables{i,2}),'.',string(variables{i,4}),' one element has NOT been imported: ',getReport(ME,'basic'));
+                                        imp_error=1;
+                                        break;
+                                    end
+                                    
+                                case 3
+                                    try
+                                        if variables{i,4}==""
+                                            for element= each(document.(splittedPath{1}).(splittedPath{2}).(splittedPath{3}))
+                                                value=[value; element.value];
+                                            end
+                                        else
+                                            for element= each(document.(splittedPath{1}).(splittedPath{2}).(splittedPath{3}))
+                                                value=[value; element.value.(string(variables{i,4}))];
+                                            end
+                                        end
+                                    catch ME
+                                        fprintf(importFid, '\n[%s]: %s%s%s%s\n%s\n\n', datestr(now, 0),string(variables{i,2}),'.',string(variables{i,4}),' one element has NOT been imported: ',getReport(ME,'basic'));
+                                        imp_error=1;
+                                        break;
+                                    end
+                                otherwise
+                                    answare=questdlg('Path size exceds the maximum default size of 4, do you want to continue anyway? (It is suggested to stop the process and check the configuration)','Warning','No');
+                                    if answare=="Yes"
+                                        if variables{i,4}==""
+                                            for element= each(eval(strcat("document.",variables{i,2})))
+                                                value=[value; element];
+                                            end
+                                        else
+                                            for element= each(eval(strcat("document.",variables{i,2},".",variables{i,4})))
+                                                value=[value; element];
+                                            end
+                                        end
+                                        
+                                        fprintf(importFid, '[%s]: %s\n%s\n\n', datestr(now, 0),string(variables{i,2}),'path size exceded the maximum of 4 but the user choose proceed anyway');
+                                    else
+                                        fid = fopen('error_log.txt', 'a');
+                                        if fid == -1
+                                            errordlg('Cannot open log file','Log error');
+                                        else
+                                            fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'import_data function','path size exceded the maximum of 4 and the user choose to stop the import process');
+                                            fclose(fid);
+                                        end
+                                        fprintf(importFid, '[%s]: %s\n%s\n\n', datestr(now, 0),string(variables{i,2}),'path size exceded the maximum of 4 and the user choose to stop the import process');
+                                        errordlg('Import process has been stopped, please check configuration and try again','Fatal error');
+                                        error('Fatal error')
+                                    end
+                            end
+                        end
+                        if variables{i,6}~=""                               % check if there is a correction
+                            instruction=checkstring(app,variables{i,6});
+                            if instruction~=""
+                                value=eval(instruction);                    % EVAL TAKES A LOT OF TIME NEED TO CHANGE
+                                fprintf(importFid, '[%s]: %s%s%s%s\n', datestr(now, 0),string(variables{i,2}),'.',string(variables{i,4}),' VALUE UPDATED');
+                            else
+                                fprintf(importFid, '\n[%s]: %s%s%s%s\n\n', datestr(now, 0),string(variables{i,2}),'.',string(variables{i,4}),' INVALID CONVERSION STRING');
+                                answare=questdlg(strcat('There is an invalid conversion string for ',string(variables{i,2}),'.',string(variables{i,4}),' Do you want to ignore it?'),'Warning','Yes');
+                                if answare=="No"
+                                    fid = fopen('error_log.txt', 'a');
+                                    if fid == -1
+                                        errordlg('Cannot open log file','Log error');
+                                    else
+                                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'import_data (correction)','A correction string was invalid, process has been stopped');
+                                        fclose(fid);
+                                    end
+                                    break;
+                                end
+                            end
+                        end
+                        if size(timestamp)==size(value)
+                            try
+                                if imp_error==0
+                                    if variables{i,4}==""
+                                        fprintf(importFid, '[%s]: %s%s\n', datestr(now, 0),string(variables{i,2}),' imported');
+                                    else
+                                        fprintf(importFid, '[%s]: %s%s%s%s\n', datestr(now, 0),string(variables{i,2}),'.',string(variables{i,4}),' imported');
+                                    end
+                                end
+                                tmseries=timeseries(value,timestamp,'Name',string(variables{i,1}));
+                                tmseries.DataInfo.Units=string(variables{i,5});
+                                tmseries.TimeInfo.Units='milliseconds';
+                                app.dataStruct.(string(variables{i,1}))=tmseries;
+                                
+                            catch ME
+                                fid = fopen('error_log.txt', 'a');
+                                if fid == -1
+                                    errordlg('Cannot open log file','Log error');
+                                else
+                                    fprintf(fid, '[%s]: %s%s\n%s%s\n', datestr(now, 0),'import_data function',strcat(' (',string(variables{i,2}),')'),'NOT IMPORTED ',ME.message);
+                                    fclose(fid);
+                                end
+                                if variables{i,4}==""
+                                    fprintf(importFid, '[%s]: %s%s%s\n', datestr(now, 0),string(variables{i,2}),' NOT IMPORTED ',ME.message);
+                                else
+                                    fprintf(importFid, '[%s]: %s%s%s%s%s\n', datestr(now, 0),string(variables{i,2}),'.',string(variables{i,4}),' NOT IMPORTED ',ME.message);
+                                end
+                            end
+                            
+                        else
+                            fid = fopen('error_log.txt', 'a');
+                            if fid == -1
+                                errordlg('Cannot open log file','Log error');
+                            else
+                                fprintf(fid, '[%s]: %s%s\n%s\n\n', datestr(now, 0),'import_data function',strcat(' (',string(variables{i,2}),')'),'NOT IMPORTED because timestamp and value vectors have different size');
+                                fclose(fid);
+                            end
+                            if variables{i,4}==""
+                                fprintf(importFid, '[%s]: %s%s\n', datestr(now, 0),string(variables{i,2}),' NOT IMPORTED because timestamp and value vectors have different size');
+                            else
+                                fprintf(importFid, '[%s]: %s%s%s%s\n', datestr(now, 0),string(variables{i,2}),'.',string(variables{i,4}),' NOT IMPORTED because timestamp and value vectors have different size');
+                            end
+                        end
+                    end
+                    progressVal=progressVal+step;
+                    tmpString=strcat(string(variables{i,2}),'.',string(variables{i,4}),'...');
+                    correctedString=replace(tmpString,'_','\_');        % MATLAB default interpreter is TEX so _ in intepreted as subscript for label use 'Interpreter','none'
+                    waitbar(progressVal,progress,correctedString)
+                end
+            end
+            fprintf(importFid, '[%s]: %s%s%s\n\n', datestr(now, 0),'IMPORT PROCESS COMPLETED in ',string(toc),' s');
+            close(progress);
+            file=0;
+            while file==0
+                [file,path] = uiputfile('*.mat','Save imported file','/../importer/saves');
+                if file==0
+                    selection = uiconfirm(app.ImporterUIFigure,"Destination not selected, please select it now or your data will be lost",'Destination not selected','Options',{'Select','Cancel'},'DefaultOption',1,'CancelOption',2,'Icon','warning');
+                    if selection=="Cancel"
+                        break;
+                    end
+                else
+                    sensors=app.dataStruct;
+                    ftype="data";
+                    save(strcat(path,file),'sensors','ftype','-mat')
+                end
+            end
+        end
+        
+        function checked = checkstring(app,original) 
+            original = strrep(original,' ','');             % remove spaces
+            output = regexp(original, '[ ()^*+/-]+', 'split');     % split at math operators
+            output(cellfun(@isempty, output)) = [];         % remove empty elements (the previous function can generate them)
+            valid=true;
+            for string = each(output) % check if the string is composed only of numbers or valid substrings
+                if isnan(str2double(string)) && string~="value" && string~="enc_var" && string~="acc_var" && string~="R_r" && string~="R_f" ...
+                        && string~="W_r" && string~="W_f" && string~="L"
+                    valid=false;
+                    break;
+                end
+            end
+            % substitute constants with their values
+            if valid~=false
+                checked = replace(original,'enc_var',num2str(app.enc_varEditField.Value));
+                checked = replace(checked,'acc_var',num2str(app.acc_varEditField.Value));
+                checked = replace(checked,'R_r',num2str(app.R_rEditField.Value));
+                checked = replace(checked,'R_f',num2str(app.R_fEditField.Value));
+                checked = replace(checked,'W_r',num2str(app.W_rEditField.Value));
+                checked = replace(checked,'W_f',num2str(app.W_fEditField.Value));
+                checked = replace(checked,'L',num2str(app.LEditField.Value));
+            else
+                checked="";
+            end
+        end
+        
+    end
+    
+    
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Code that executes after component creation
+        function startupFcn(app)
+            fid = fopen('error_log.txt', 'a');
+            if fid == -1
+                errordlg('Cannot open log file','Log error');
+            else
+                fprintf(fid, '\n%s%s\n\n', 'APPLICATION STARTED AT ',datestr(now, 0));
+                fclose(fid);
+            end
+            if isfile("settings.mat")
+                load("settings.mat","settings","ftype");
+                if exist('ftype')==1 && ftype=="dbsettings"
+                    app.HostEditField.Value=settings(1,2);
+                    app.PortEditField.Value=settings(2,2);
+                    app.UsernameEditField.Value=settings(4,2);
+                    app.PasswordEditField.Value=settings(5,2);
+                    app.DatabaseEditField.Value=settings(3,2);
+                    ConnectButtonPushed(app,"");
+                else
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Startup load (DBsettings)','The check variable type has not the correct value or does not exist');
+                        fclose(fid);
+                    end
+                    errordlg('Unable to load DBsettings, wrong file type','File error');
+                end
+            else
+                edit("settings.mat");
+                settings=["host" "";"port" "";"db" "";"user" "";"password" ""];
+                ftype="dbsettings";
+                save("settings.mat", "settings","ftype");
+                fid = fopen('error_log.txt', 'a');
+                if fid == -1
+                    errordlg('Cannot open log file','Log error');
+                else
+                    fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Startup load (DBsettings)','settings.mat does not exist, an empty version has been created.');
+                    fclose(fid);
+                end
+                errordlg('Unable to load DBsettings, file not found. An empty settings file has been created','File error');
+            end
+            checkFile=isfile(fullfile(pwd,"/default/default_var.mat"));
+            if isfile(fullfile(pwd,"/default/default_var.mat"))
+                load(fullfile(pwd,"/default/default_var.mat"),"variables","ftype");
+                if exist('ftype')==1 && ftype=="variables"
+                    app.tabledata=table(variables{:,1},variables{:,2},variables{:,3},variables{:,4});
+                    completePathVec=[];
+                    for i=1:size(app.tabledata{:,1})
+                        if app.tabledata{i,4}~=""
+                            completePathVec=[completePathVec;strcat(app.tabledata{i,2},".",app.tabledata{i,4})];
+                        else
+                            completePathVec=[completePathVec;app.tabledata{i,2}];
+                        end
+                    end
+                    completePathTbl=array2table(completePathVec);
+                    app.VariablesTable.Data = [completePathTbl,table(variables{:,1},variables{:,5},variables{:,6},variables{:,7})];
+                    app.state_var=true;
+                else
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Startup (variables)','The check variable type has not the correct value or does not exist');
+                        fclose(fid);
+                    end
+                    errordlg('Unable to load variables, wrong file type','File error');
+                end
+                app.state_var=true;
+            else
+                fid = fopen('error_log.txt', 'a');
+                if fid == -1
+                    errordlg('Cannot open log file','Log error');
+                else
+                    fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Startup (variables)','Default file not found');
+                    fclose(fid);
+                end
+            end
+            
+            if isfile(fullfile(pwd,"/default/default_vei.mat"))
+                load(fullfile(pwd,"/default/default_vei.mat"),"enc_var","acc_var","R_r","R_f","W_f","W_r","L","ftype");
+                if exist('ftype') == 1 && ftype == "veichle"
+                    if exist('enc_var') == 1 && exist('acc_var') == 1 && exist('R_r') == 1 && exist('R_f') == 1 && exist('W_f') == 1 && exist('W_r') == 1 && exist('L') == 1
+                        app.enc_varEditField.Value=enc_var;
+                        app.acc_varEditField.Value=acc_var;
+                        app.R_rEditField.Value=R_r;
+                        app.R_fEditField.Value=R_f;
+                        app.W_fEditField.Value=W_f;
+                        app.W_rEditField.Value=W_r;
+                        app.LEditField.Value=L;
+                        app.state_vei=true;
+                    else
+                        fid = fopen('error_log.txt', 'a');
+                        if fid == -1
+                            errordlg('Cannot open log file','Log error');
+                        else
+                            fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Startup (veichle)','One or more of the required parameters are not in the file, load abort');
+                            fclose(fid);
+                        end
+                        errordlg('Unable to load one or more of veichle parameters','Parameters error');
+                    end
+                else
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Startup (veichle)','The check variable type has not the correct value or does not exist');
+                        fclose(fid);
+                    end
+                    errordlg('Unable to load variables, wrong file type','File error');
+                end
+                app.state_vei=true;
+            else
+                fid = fopen('error_log.txt', 'a');
+                if fid == -1
+                    errordlg('Cannot open log file','Log error');
+                else
+                    fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Startup (veichle)','Default file not found');
+                    fclose(fid);
+                end
+            end
+        end
+
+        % Menu selected function: EsciMenu
+        function EsciMenuSelected(app, event)
+            delete(app.ImporterUIFigure);
+        end
+
+        % Button pushed function: ImportstructureButton
+        function ImportstructureButtonPushed(app, event)
+            [file,path] = uigetfile('*.json','Select structure file');
+            %check if file has been selected
+            if file ~= 0
+                completepath = strcat(path,file);
+                systemCommand = ['python3 parse_structure.py ',completepath];   % AN INSTALLED VERSION OF PHYTON ABOVE 3.6 IS REQUIRED
+                [status, result] = system(systemCommand);
+                if status ~= 0
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Import structure button',result);
+                        fclose(fid);
+                    end
+                end
+                app.tabledata = readtable('output.csv','PreserveVariableNames',true); %import structure table from output of parse_structure.py
+                nrow = size(app.tabledata{:,1});
+                %filler and Vtrue are required to properely build the table
+                %(value needed for all cells)
+                filler = "";
+                completePathVec=[];
+                for i = 1:nrow-1
+                    filler = [filler;""];
+                end
+                Vtrue = true([nrow,1]);
+                for i=1:nrow
+                    if app.tabledata{i,4}~=""
+                        completePathVec=[completePathVec;strcat(app.tabledata{i,2},".",app.tabledata{i,4})];
+                    else
+                        completePathVec=[completePathVec;app.tabledata{i,2}];
+                    end
+                end
+                completePathTbl=array2table(completePathVec);
+                app.VariablesTable.Data = [completePathTbl,table(app.tabledata{:,1}, filler, filler, Vtrue)];
+                app.state_var=false;
+                %app.VariablesTable.ColumnEditable(1) = false; TO CHECK
+            end
+        end
+
+        % Button pushed function: SaveButton_var
+        function SaveButton_varPushed(app, event)
+            if app.state_var~=true
+                data = app.VariablesTable.Data;
+                variables = table(data{:,2},app.tabledata{:,2},app.tabledata{:,3},app.tabledata{:,4},data{:,3},data{:,4},data{:,5});
+                [file,path] = uiputfile('*.mat','Save variables file',fullfile(pwd,'variables'));
+                completepath = strcat(path,file);
+                if file ~= 0
+                    ftype="variables";
+                    save(completepath,"variables","ftype");
+                    app.state_var=true;
+                else
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Save button (variables)','Input window closed without selection');
+                        fclose(fid);
+                    end
+                    errordlg('Variables has not been saved, no save file selected','File error');
+                end
+            else
+                msgbox("Variables already saved","Unable to save","help")
+            end
+        end
+
+        % Button pushed function: SaveButton_vei
+        function SaveButton_veiPushed(app, event)
+            if app.state_vei~=true
+                enc_var=app.enc_varEditField.Value;
+                acc_var=app.acc_varEditField.Value;
+                R_r=app.R_rEditField.Value;
+                R_f=app.R_fEditField.Value;
+                W_f=app.W_fEditField.Value;
+                W_r=app.W_rEditField.Value;
+                L=app.LEditField.Value;
+                [file,path] = uiputfile('*.mat','Save veichle parameters',fullfile(pwd,'veichle'));
+                completepath = strcat(path,file);
+                if file ~= 0
+                    ftype="veichle";
+                    save(completepath,"enc_var","acc_var","R_r","R_f","W_f","W_r","L","ftype");
+                    app.state_vei=true;
+                else
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Save button (veichle)','Input window closed without selection');
+                        fclose(fid);
+                    end
+                    errordlg('Variables has not been saved, no save file selected','File error');
+                end
+            else
+                msgbox("Veichles parameters already saved","Unable to save","help")
+            end
+        end
+
+        % Button pushed function: Save_dbButton
+        function Save_dbButtonPushed(app, event)
+            %TODO: implement crypto for password storage
+            settings=["host" app.HostEditField.Value;"port" app.PortEditField.Value;"db" app.DatabaseEditField.Value;"user" app.UsernameEditField.Value;"password" app.PasswordEditField.Value];
+            ftype="dbsettings";
+            save("settings.mat", "settings","ftype");
+            ConnectButtonPushed(app, '');
+        end
+
+        % Button pushed function: LoadButton_var
+        function LoadButton_varPushed(app, event)
+            [file,path] = uigetfile('*.mat','Select variables file',fullfile(pwd,'variables'));
+            completepath = strcat(path,file);
+            if file ~= 0
+                load(completepath,"variables","ftype");
+                if exist('ftype')==1 && ftype=="variables"
+                    app.tabledata=table(variables{:,1},variables{:,2},variables{:,3},variables{:,4});
+                    completePathVec=[];
+                    for i=1:size(app.tabledata{:,1})
+                        if app.tabledata{i,4}~=""
+                            completePathVec=[completePathVec;strcat(app.tabledata{i,2},".",app.tabledata{i,4})];
+                        else
+                            completePathVec=[completePathVec;app.tabledata{i,2}];
+                        end
+                    end
+                    completePathTbl=array2table(completePathVec);
+                    app.VariablesTable.Data = [completePathTbl,table(variables{:,1},variables{:,5},variables{:,6},variables{:,7})];
+                    app.state_var=true;
+                else
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Load button (variables)','The check variable type has not the correct value or does not exist');
+                        fclose(fid);
+                    end
+                    errordlg('Unable to load variables, wrong file type','File error');
+                end
+            else
+                fid = fopen('error_log.txt', 'a');
+                if fid == -1
+                    errordlg('Cannot open log file','Log error');
+                else
+                    fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Load button (variables)','Input window closed without selection');
+                    fclose(fid);
+                end
+                errordlg('Variables has not been loaded, no load file selected','File error');
+            end
+        end
+
+        % Button pushed function: LoadButton_vei
+        function LoadButton_veiPushed(app, event)
+            [file,path] = uigetfile('*.mat','Select veichle file',fullfile(pwd,'veichle'));
+            completepath = strcat(path,file);
+            if file ~= 0
+                load(completepath,"enc_var","acc_var","R_r","R_f","W_f","W_r","L","ftype");
+                if exist('ftype') == 1 && ftype == "veichle"
+                    if exist('enc_var') == 1 && exist('acc_var') == 1 && exist('R_r') == 1 && exist('R_f') == 1 && exist('W_f') == 1 && exist('W_r') == 1 && exist('L') == 1
+                        app.enc_varEditField.Value=enc_var;
+                        app.acc_varEditField.Value=acc_var;
+                        app.R_rEditField.Value=R_r;
+                        app.R_fEditField.Value=R_f;
+                        app.W_fEditField.Value=W_f;
+                        app.W_rEditField.Value=W_r;
+                        app.LEditField.Value=L;
+                        app.state_vei=true;
+                    else
+                        fid = fopen('error_log.txt', 'a');
+                        if fid == -1
+                            errordlg('Cannot open log file','Log error');
+                        else
+                            fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Load button (veichle)','One or more of the required parameters are not in the file, load abort');
+                            fclose(fid);
+                        end
+                        errordlg('Unable to load one or more of the parameters','Parameters error');
+                    end
+                else
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Load button (veichle)','The check variable type has not the correct value or does not exist');
+                        fclose(fid);
+                    end
+                    errordlg('Unable to load veichle parameters, wrong file type','File error');
+                end
+            else
+                fid = fopen('error_log.txt', 'a');
+                if fid == -1
+                    errordlg('Cannot open log file','Log error');
+                else
+                    fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Load button (veichle)','Input window closed without selection');
+                    fclose(fid);
+                end
+                errordlg('Veichle parameters has not been loaded, no load file selected','File error');
+            end
+        end
+
+        % Display data changed function: VariablesTable
+        function VariablesTableDisplayDataChanged(app, event)
+            app.state_var=false;
+        end
+
+        % Value changed function: enc_varEditField
+        function enc_varEditFieldValueChanged(app, event)
+            app.state_vei=false;
+        end
+
+        % Value changed function: acc_varEditField
+        function acc_varEditFieldValueChanged(app, event)
+            app.state_vei=false;
+        end
+
+        % Value changed function: R_rEditField
+        function R_rEditFieldValueChanged(app, event)
+            app.state_vei=false;
+        end
+
+        % Value changed function: R_fEditField
+        function R_fEditFieldValueChanged(app, event)
+            app.state_vei=false;
+        end
+
+        % Value changed function: W_fEditField
+        function W_fEditFieldValueChanged(app, event)
+            app.state_vei=false;
+        end
+
+        % Value changed function: LEditField
+        function LEditFieldValueChanged(app, event)
+            app.state_vei=false;
+        end
+
+        % Button pushed function: ConnectButton
+        function ConnectButtonPushed(app, event)
+            host=app.HostEditField.Value;
+            port=uint16(str2double(app.PortEditField.Value));
+            database=app.DatabaseEditField.Value;
+            usr=app.UsernameEditField.Value;
+            pwd=app.PasswordEditField.Value;
+            try
+                app.conn = mongo(host,port,database,'UserName',usr,'Password',pwd);
+                if isopen(app.conn)
+                    app.DBstateLabel.Text='Connected';
+                    app.DBstateLabel.FontColor=[0 1 0];
+                end
+                collections=[" "];
+                collections=[collections, app.conn.CollectionNames];
+                app.AvaiblecollectionsDropDown.Items=collections;
+                app.ConnectButton.Enable=false;
+            catch ME
+                errordlg(ME.identifier,'Impossibile stabilire una connesisone, controllare i parametri immessi');
+                fid = fopen('error_log.txt', 'a');
+                if fid == -1
+                    errordlg('Cannot open log file','Log error');
+                else
+                    fprintf(fid, '[%s]: %s\n%s\n%s\n\n', datestr(now, 0),'Connect button','Unable to connect: ',ME.identifier);
+                    fclose(fid);
+                 end
+            end
+        end
+
+        % Value changed function: AvaiblecollectionsDropDown
+        function AvaiblecollectionsDropDownValueChanged(app, event)
+            value = app.AvaiblecollectionsDropDown.Value;
+            if (value~=" ")
+                field = "sessionName";
+                app.sessions = distinct(app.conn,value,field);
+                app.sessions=[" " app.sessions];
+                app.AvaiblesessionsDropDown.Items=app.sessions;
+            end
+            app.ImportButton.Enable=true;
+        end
+
+        % Button pushed function: ImportButton
+        function ImportButtonPushed(app, event)
+            importFid = fopen('import_log.txt', 'w');
+            if importFid == -1
+                errordlg('Cannot open import log file, process has been stopped','Log error');
+            else
+                data=table(app.VariablesTable.Data);
+                if isempty(data(:,:))
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Import button','Tried to import data with empty variable table, import process stopped.');
+                        fclose(fid);
+                    end
+                    errordlg('Varibles table is empty, please fill it before importation.','Importation failed');
+                elseif app.enc_varEditField.Value==0 && app.acc_varEditField.Value==0 && app.R_rEditField.Value==0 && app.R_fEditField.Value==0 && app.W_fEditField.Value==0 && app.W_rEditField.Value==0 && app.LEditField.Value==0
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Import button','Tried to import data with all 0 parameters, import process stopped.');
+                        fclose(fid);
+                    end
+                    errordlg('Veichle parameters are all 0, please set at least one of them.','Importation failed');
+                elseif app.state_var==false && app.state_vei==true
+                    answare=questdlg('Varibles has not been save, this means you will not be able to easily use this configuration in the future. Do you want to save it now?','Warning','Yes');
+                    if answare=="Yes"
+                        SaveButton_varPushed(app, '');
+                        if app.state_var==true
+                            errordlg('Variables have been saved','Success');
+                        else
+                            fid = fopen('error_log.txt', 'a');
+                            if fid == -1
+                                errordlg('Cannot open log file','Log error');
+                            else
+                                fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Import button','Variables save call failed. state_var is still false.');
+                                fclose(fid);
+                            end
+                            errordlg('Unable to save, please try to save variables manually after importation process completed','Variables saving failed');
+                        end
+                    end
+                    import_data(app,importFid);
+                elseif app.state_var==true && app.state_vei==false
+                    answare=questdlg('Veichle parameters has not been save, this means you will not be able to easily use this configuration in the future. Do you want to save it now?','Warning','Yes');
+                    if answare=="Yes"
+                        SaveButton_veiPushed(app, '');
+                        if app.state_vei==true
+                            errordlg('Veichle parameters have been saved','Success');
+                        else
+                            fid = fopen('error_log.txt', 'a');
+                            if fid == -1
+                                errordlg('Cannot open log file','Log error');
+                            else
+                                fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Import button','Veichle save call failed. state_vei is still false.');
+                                fclose(fid);
+                            end
+                            errordlg('Unable to save, please try to save veichle parameters manually after importation process completed','Veichle parameters saving failed');
+                        end
+                    end
+                    import_data(app,importFid);
+                elseif app.state_var==false && app.state_vei==false
+                    answare=questdlg('Varibles and veichle parameters has not been save, this means you will not be able to easily use this configuration in the future. Do you want to save it now?','Warning','Yes');
+                    if answare=="Yes"
+                        SaveButton_varPushed(app, '');
+                        SaveButton_veiPushed(app, '');
+                        if app.state_vei==true && app.state_var==true
+                            errordlg('Variables and veichle parameters have been saved','Success');
+                        else
+                            fid = fopen('error_log.txt', 'a');
+                            if fid == -1
+                                errordlg('Cannot open log file','Log error');
+                            else
+                                fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Import button',' Variables and/or veichle save call failed. state_vei and/or state_var are still false.');
+                                fclose(fid);
+                            end
+                            errordlg('Unable to save, please try to save variables and veichle parameters manually after importation process completed','Variables and veichle parameters saving failed');
+                        end
+                    end
+                    import_data(app,importFid);
+                elseif app.state_var==true && app.state_vei==true
+                    import_data(app,importFid);
+                else
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Import button','Process came out of the check condition of import without doing anything, porbably wrong app.state_? setting');
+                        fclose(fid);
+                    end
+                    errordlg('Unknown error!','Exception');
+                end
+                fclose(importFid);
+            end
+        end
+
+        % Button pushed function: SelectfileButton
+        function SelectfileButtonPushed(app, event)
+            [file,path] = uigetfile('*.mat','Select data file','/../importer/saves');
+            
+            if file ~= 0
+                load(fullfile(path,file),"sensors","ftype");
+                if exist('ftype')==1 && ftype=="data"
+                    [nrow,~]=size(fieldnames(sensors));
+                    Vtrue = true([nrow,1]);
+                    app.ResampleTable.Data=table(fieldnames(sensors),Vtrue);
+                    app.sensors=sensors;
+                    app.ResampleButton.Enable=true;
+                    app.savePath=fullfile(path,file);
+                else
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Select file button (resample)','The check variable type has not the correct value or does not exist');
+                        fclose(fid);
+                    end
+                    errordlg('Unable to load data, wrong file type','File error');
+                end
+            else
+                fid = fopen('error_log.txt', 'a');
+                if fid == -1
+                    errordlg('Cannot open log file','Log error');
+                else
+                    fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Select file button (resample)','Input window closed without selection');
+                    fclose(fid);
+                end
+                errordlg('Data has not been loaded, no file selected','File error');
+            end
+        end
+
+        % Button pushed function: ResampleButton
+        function ResampleButtonPushed(app, event)
+            sensors=app.sensors;
+            toResample=app.ResampleTable.Data{app.ResampleTable.Data{:,2},1};
+            minMatrix=[];
+            for name=each(toResample)
+                [dim,~]=size(sensors.(string(name)).Time);
+                minMatrix=[minMatrix;string(name),min(sensors.(string(name)).Time),dim]; % get minimum timetamp and timestamp vector size for each timeserie to resample
+            end
+            [~,idx]=min(str2double(minMatrix(:,2))); % get position of the minimum of the timestamp which will be used as start point
+            minSample=minMatrix(idx); % get the minimum sample
+            for val=minMatrix.' %iteration over matrix row
+                fillerTime=sensors.(minSample).Time(sensors.(minSample).Time<str2double(val(2,1))); % generate a vector with timestamps (from minSample) which are between the mimimum and the first of the actual timeseries 
+                [dimFiller,~]=size(fillerTime);
+                fillerData=zeros(dimFiller,1); %generate a zeros vector
+                newTime=[fillerTime;sensors.(val(1,1)).Time]; % collapse time vectors
+                newData=[fillerData;sensors.(val(1,1)).Data]; % collapse data vectors
+                name=sensors.(val(1,1)).Name;               % store actual units and name
+                unit=sensors.(val(1,1)).Datainfo.Units;
+                sensors.(val(1,1))=timeseries(newData,newTime); % generate timeseries
+                sensors.(val(1,1)).Name=name;
+                sensors.(val(1,1)).Datainfo.Units=unit;             %reset units and name
+                sensors.(val(1,1)).TimeInfo.Units='milliseconds';
+            end
+            [~,idx]=max(str2double(minMatrix(:,3))); % get position of the biggest of the timestamp
+            timeSample=minMatrix(idx); % get the time sample
+            for val=minMatrix.' %iteration over matrix row
+                sensors.(val(1,1))=resample(sensors.(val(1,1)),sensors.(timeSample).Time); % resample data with the biggest timestamp vector
+                nanVec=isnan(sensors.(val(1,1)).Data);
+                nanPos=find(nanVec);
+                for pos=each(nanPos)
+                    if pos>1
+                        sensors.(val(1,1)).Data(pos)=sensors.(val(1,1)).Data(pos-1);
+                    else
+                        sensors.(val(1,1)).Data(pos)=0;
+                    end 
+                end
+            end
+            answer = questdlg('Resample completed, what do you want to do?','Success','Overwrite','Save as...','Cancel','Save as...');
+            % Handle response
+            switch answer
+                case 'Overwrite'
+                    ftype="data";
+                    save(app.savePath,'sensors','ftype','-mat');
+                case 'Save as...'
+                    [file,path] = uiputfile('*.mat','Select destination',fullfile(pwd,'resampled'));
+                    if file ~= 0
+                        ftype="data";
+                        save(fullfile(path,file),'sensors','ftype','-mat');
+                    else
+                        fid = fopen('error_log.txt', 'a');
+                        if fid == -1
+                            errordlg('Cannot open log file','Log error');
+                        else
+                            fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Resample completed question box','Input window closed without selection, no data saved');
+                            fclose(fid);
+                        end
+                        errordlg('Data has not been saved, no destination selected','File error');
+                    end
+                case 'Cancel'
+                    msgbox('Resample process stopped without saving','Error','error');
+                    fid = fopen('error_log.txt', 'a');
+                    if fid == -1
+                        errordlg('Cannot open log file','Log error');
+                    else
+                        fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Resample completed question box','User choose to stop resampling without saving');
+                        fclose(fid);
+                    end
+            end
+            
+        end
+
+        % Menu selected function: SetAsDefaultVariablesMenu
+        function SetAsDefaultVariablesMenuSelected(app, event)
+            if app.state_var==true
+                data = app.VariablesTable.Data;
+                variables = table(data{:,2},app.tabledata{:,2},app.tabledata{:,3},app.tabledata{:,4},data{:,3},data{:,4},data{:,5});
+                ftype="variables";
+                save(fullfile(pwd,"/default/default_var.mat"),"variables","ftype");
+                msgbox("Actual variables set as default","Success","help");
+            else
+                answer = questdlg('Actual variables configuration is not saved please save it before continue','Configuration not saved','Save','Cancel','Save');
+                % Handle response
+                switch answer
+                    case 'Save'
+                        while app.state_var~=true
+                            SaveButton_varPushed(app, '');
+                        end
+                        data = app.VariablesTable.Data;
+                        variables = table(data{:,2},app.tabledata{:,2},app.tabledata{:,3},app.tabledata{:,4},data{:,3},data{:,4},data{:,5});
+                        ftype="variables";
+                        save(fullfile(pwd,"/default/default_var.mat"),"variables","ftype");
+                        msgbox("Actual variables set as default","Success","help");
+                    case 'Cancel'
+                        msgbox('Default variables have not been set','Error','error');
+                        fid = fopen('error_log.txt', 'a');
+                        if fid == -1
+                            errordlg('Cannot open log file','Log error');
+                        else
+                            fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Default variables question box','User choose not to save configuration, set default var process aborted');
+                            fclose(fid);
+                        end
+                end
+            end
+        end
+
+        % Menu selected function: SetAsDefaultVeichleMenu
+        function SetAsDefaultVeichleMenuSelected(app, event)
+            if app.state_vei==true
+                enc_var=app.enc_varEditField.Value;
+                acc_var=app.acc_varEditField.Value;
+                R_r=app.R_rEditField.Value;
+                R_f=app.R_fEditField.Value;
+                W_f=app.W_fEditField.Value;
+                W_r=app.W_rEditField.Value;
+                L=app.LEditField.Value;
+                ftype="veichle";
+                save(fullfile(pwd,"/default/default_vei.mat"),"enc_var","acc_var","R_r","R_f","W_f","W_r","L","ftype");
+                msgbox("Actual veichle parameters set as default","Success","help");
+            else
+                answer = questdlg('Actual veichle configuration is not saved please save it before continue','Configuration not saved','Save','Cancel','Save');
+                % Handle response
+                switch answer
+                    case 'Save'
+                        while app.state_var~=true
+                            SaveButton_veiPushed(app, '');
+                        end
+                        enc_var=app.enc_varEditField.Value;
+                        acc_var=app.acc_varEditField.Value;
+                        R_r=app.R_rEditField.Value;
+                        R_f=app.R_fEditField.Value;
+                        W_f=app.W_fEditField.Value;
+                        W_r=app.W_rEditField.Value;
+                        L=app.LEditField.Value;
+                        ftype="veichle";
+                        save(fullfile(pwd,"/default/default_vei.mat"),"enc_var","acc_var","R_r","R_f","W_f","W_r","L","ftype");
+                        msgbox("Actual veichle parameters set as default","Success","help");
+                    case 'Cancel'
+                        msgbox('Default veichle parameters have not been set','Error','error');
+                        fid = fopen('error_log.txt', 'a');
+                        if fid == -1
+                            errordlg('Cannot open log file','Log error');
+                        else
+                            fprintf(fid, '[%s]: %s\n%s\n\n', datestr(now, 0),'Default veichle question box','User choose not to save configuration, set default vei process aborted');
+                            fclose(fid);
+                        end
+                end
+            end
+        end
+
+        % Menu selected function: AlberovariabiliMenu_sv
+        function AlberovariabiliMenu_svSelected(app, event)
+            SaveButton_varPushed(app,'');
+        end
+
+        % Menu selected function: ParametriveicoloMenu_sv
+        function ParametriveicoloMenu_svSelected(app, event)
+            SaveButton_veiPushed(app,'');
+        end
+
+        % Menu selected function: TuttoMenu_sv
+        function TuttoMenu_svSelected(app, event)
+            SaveButton_varPushed(app,'');
+            SaveButton_veiPushed(app,'');
+        end
+
+        % Button pushed function: LaunchplotterButton
+        function LaunchplotterButtonPushed(app, event)
+            % Disable Plot Options button while dialog is open
+            app.LaunchplotterButton.Enable = 'off';
+            app.plotterApp = plotter(app);
+        end
+
+        % Close request function: ImporterUIFigure
+        function ImporterUIFigureCloseRequest(app, event)
+            delete(app.plotterApp)
+            delete(app)
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create ImporterUIFigure and hide until all components are created
+            app.ImporterUIFigure = uifigure('Visible', 'off');
+            app.ImporterUIFigure.Position = [100 100 855 564];
+            app.ImporterUIFigure.Name = 'Importer';
+            app.ImporterUIFigure.CloseRequestFcn = createCallbackFcn(app, @ImporterUIFigureCloseRequest, true);
+
+            % Create FileMenu
+            app.FileMenu = uimenu(app.ImporterUIFigure);
+            app.FileMenu.Text = 'File';
+
+            % Create SaveMenu
+            app.SaveMenu = uimenu(app.FileMenu);
+            app.SaveMenu.Text = 'Save';
+
+            % Create TuttoMenu_sv
+            app.TuttoMenu_sv = uimenu(app.SaveMenu);
+            app.TuttoMenu_sv.MenuSelectedFcn = createCallbackFcn(app, @TuttoMenu_svSelected, true);
+            app.TuttoMenu_sv.Text = 'All';
+
+            % Create ParametriveicoloMenu_sv
+            app.ParametriveicoloMenu_sv = uimenu(app.SaveMenu);
+            app.ParametriveicoloMenu_sv.MenuSelectedFcn = createCallbackFcn(app, @ParametriveicoloMenu_svSelected, true);
+            app.ParametriveicoloMenu_sv.Text = 'Vehicle';
+
+            % Create AlberovariabiliMenu_sv
+            app.AlberovariabiliMenu_sv = uimenu(app.SaveMenu);
+            app.AlberovariabiliMenu_sv.MenuSelectedFcn = createCallbackFcn(app, @AlberovariabiliMenu_svSelected, true);
+            app.AlberovariabiliMenu_sv.Text = 'Variables';
+
+            % Create SetasdefaultMenu
+            app.SetasdefaultMenu = uimenu(app.FileMenu);
+            app.SetasdefaultMenu.Text = 'Set as default';
+
+            % Create SetAsDefaultVariablesMenu
+            app.SetAsDefaultVariablesMenu = uimenu(app.SetasdefaultMenu);
+            app.SetAsDefaultVariablesMenu.MenuSelectedFcn = createCallbackFcn(app, @SetAsDefaultVariablesMenuSelected, true);
+            app.SetAsDefaultVariablesMenu.Text = 'Variables';
+
+            % Create SetAsDefaultVeichleMenu
+            app.SetAsDefaultVeichleMenu = uimenu(app.SetasdefaultMenu);
+            app.SetAsDefaultVeichleMenu.MenuSelectedFcn = createCallbackFcn(app, @SetAsDefaultVeichleMenuSelected, true);
+            app.SetAsDefaultVeichleMenu.Text = 'Veichle';
+
+            % Create EsciMenu
+            app.EsciMenu = uimenu(app.FileMenu);
+            app.EsciMenu.MenuSelectedFcn = createCallbackFcn(app, @EsciMenuSelected, true);
+            app.EsciMenu.Text = 'Esci';
+
+            % Create TabGroup
+            app.TabGroup = uitabgroup(app.ImporterUIFigure);
+            app.TabGroup.Position = [1 0 855 565];
+
+            % Create ImportTab
+            app.ImportTab = uitab(app.TabGroup);
+            app.ImportTab.Title = 'Import';
+
+            % Create TabGroup2
+            app.TabGroup2 = uitabgroup(app.ImportTab);
+            app.TabGroup2.Position = [1 -2 854 542];
+
+            % Create RemoteTab
+            app.RemoteTab = uitab(app.TabGroup2);
+            app.RemoteTab.Title = 'Remote';
+
+            % Create GridLayout5
+            app.GridLayout5 = uigridlayout(app.RemoteTab);
+            app.GridLayout5.ColumnWidth = {'1x', '1x', '1x'};
+            app.GridLayout5.RowHeight = {'1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x'};
+
+            % Create DatabaseconnectionstateLabel
+            app.DatabaseconnectionstateLabel = uilabel(app.GridLayout5);
+            app.DatabaseconnectionstateLabel.HorizontalAlignment = 'right';
+            app.DatabaseconnectionstateLabel.FontSize = 14;
+            app.DatabaseconnectionstateLabel.Layout.Row = 1;
+            app.DatabaseconnectionstateLabel.Layout.Column = 1;
+            app.DatabaseconnectionstateLabel.Text = 'Database connection state:';
+
+            % Create DBstateLabel
+            app.DBstateLabel = uilabel(app.GridLayout5);
+            app.DBstateLabel.FontSize = 16;
+            app.DBstateLabel.FontWeight = 'bold';
+            app.DBstateLabel.FontColor = [1 0 0];
+            app.DBstateLabel.Layout.Row = 1;
+            app.DBstateLabel.Layout.Column = 2;
+            app.DBstateLabel.Text = 'Disconnected';
+
+            % Create ConnectButton
+            app.ConnectButton = uibutton(app.GridLayout5, 'push');
+            app.ConnectButton.ButtonPushedFcn = createCallbackFcn(app, @ConnectButtonPushed, true);
+            app.ConnectButton.FontSize = 14;
+            app.ConnectButton.Layout.Row = 1;
+            app.ConnectButton.Layout.Column = 3;
+            app.ConnectButton.Text = 'Connect';
+
+            % Create AvaiblecollectionsDropDownLabel
+            app.AvaiblecollectionsDropDownLabel = uilabel(app.GridLayout5);
+            app.AvaiblecollectionsDropDownLabel.HorizontalAlignment = 'right';
+            app.AvaiblecollectionsDropDownLabel.FontSize = 14;
+            app.AvaiblecollectionsDropDownLabel.Layout.Row = 3;
+            app.AvaiblecollectionsDropDownLabel.Layout.Column = 1;
+            app.AvaiblecollectionsDropDownLabel.Text = 'Avaible collections:';
+
+            % Create AvaiblecollectionsDropDown
+            app.AvaiblecollectionsDropDown = uidropdown(app.GridLayout5);
+            app.AvaiblecollectionsDropDown.Items = {};
+            app.AvaiblecollectionsDropDown.ValueChangedFcn = createCallbackFcn(app, @AvaiblecollectionsDropDownValueChanged, true);
+            app.AvaiblecollectionsDropDown.FontSize = 14;
+            app.AvaiblecollectionsDropDown.Layout.Row = 3;
+            app.AvaiblecollectionsDropDown.Layout.Column = [2 3];
+            app.AvaiblecollectionsDropDown.Value = {};
+
+            % Create AvaiblesessionsDropDownLabel
+            app.AvaiblesessionsDropDownLabel = uilabel(app.GridLayout5);
+            app.AvaiblesessionsDropDownLabel.HorizontalAlignment = 'right';
+            app.AvaiblesessionsDropDownLabel.FontSize = 14;
+            app.AvaiblesessionsDropDownLabel.Layout.Row = 4;
+            app.AvaiblesessionsDropDownLabel.Layout.Column = 1;
+            app.AvaiblesessionsDropDownLabel.Text = 'Avaible sessions:';
+
+            % Create AvaiblesessionsDropDown
+            app.AvaiblesessionsDropDown = uidropdown(app.GridLayout5);
+            app.AvaiblesessionsDropDown.Items = {};
+            app.AvaiblesessionsDropDown.FontSize = 14;
+            app.AvaiblesessionsDropDown.Layout.Row = 4;
+            app.AvaiblesessionsDropDown.Layout.Column = [2 3];
+            app.AvaiblesessionsDropDown.Value = {};
+
+            % Create ImportButton
+            app.ImportButton = uibutton(app.GridLayout5, 'push');
+            app.ImportButton.ButtonPushedFcn = createCallbackFcn(app, @ImportButtonPushed, true);
+            app.ImportButton.FontSize = 14;
+            app.ImportButton.Enable = 'off';
+            app.ImportButton.Layout.Row = 6;
+            app.ImportButton.Layout.Column = 2;
+            app.ImportButton.Text = 'Import';
+
+            % Create LaunchplotterButton
+            app.LaunchplotterButton = uibutton(app.GridLayout5, 'push');
+            app.LaunchplotterButton.ButtonPushedFcn = createCallbackFcn(app, @LaunchplotterButtonPushed, true);
+            app.LaunchplotterButton.FontSize = 14;
+            app.LaunchplotterButton.Layout.Row = 7;
+            app.LaunchplotterButton.Layout.Column = 2;
+            app.LaunchplotterButton.Text = 'Launch plotter';
+
+            % Create DBsettingsTab
+            app.DBsettingsTab = uitab(app.TabGroup2);
+            app.DBsettingsTab.Title = 'DB settings';
+
+            % Create GridLayout4
+            app.GridLayout4 = uigridlayout(app.DBsettingsTab);
+            app.GridLayout4.ColumnWidth = {'1x', '1x', '1x'};
+            app.GridLayout4.RowHeight = {'1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x'};
+
+            % Create HostEditFieldLabel
+            app.HostEditFieldLabel = uilabel(app.GridLayout4);
+            app.HostEditFieldLabel.HorizontalAlignment = 'right';
+            app.HostEditFieldLabel.Layout.Row = 1;
+            app.HostEditFieldLabel.Layout.Column = 1;
+            app.HostEditFieldLabel.Text = 'Host:';
+
+            % Create HostEditField
+            app.HostEditField = uieditfield(app.GridLayout4, 'text');
+            app.HostEditField.Layout.Row = 1;
+            app.HostEditField.Layout.Column = 2;
+
+            % Create PortEditFieldLabel
+            app.PortEditFieldLabel = uilabel(app.GridLayout4);
+            app.PortEditFieldLabel.HorizontalAlignment = 'right';
+            app.PortEditFieldLabel.Layout.Row = 2;
+            app.PortEditFieldLabel.Layout.Column = 1;
+            app.PortEditFieldLabel.Text = 'Port:';
+
+            % Create PortEditField
+            app.PortEditField = uieditfield(app.GridLayout4, 'text');
+            app.PortEditField.Layout.Row = 2;
+            app.PortEditField.Layout.Column = 2;
+
+            % Create UsernameLabel
+            app.UsernameLabel = uilabel(app.GridLayout4);
+            app.UsernameLabel.HorizontalAlignment = 'right';
+            app.UsernameLabel.Layout.Row = 3;
+            app.UsernameLabel.Layout.Column = 1;
+            app.UsernameLabel.Text = 'Username:';
+
+            % Create UsernameEditField
+            app.UsernameEditField = uieditfield(app.GridLayout4, 'text');
+            app.UsernameEditField.Layout.Row = 3;
+            app.UsernameEditField.Layout.Column = 2;
+
+            % Create PasswordLabel
+            app.PasswordLabel = uilabel(app.GridLayout4);
+            app.PasswordLabel.HorizontalAlignment = 'right';
+            app.PasswordLabel.Layout.Row = 4;
+            app.PasswordLabel.Layout.Column = 1;
+            app.PasswordLabel.Text = 'Password:';
+
+            % Create PasswordEditField
+            app.PasswordEditField = uieditfield(app.GridLayout4, 'text');
+            app.PasswordEditField.Layout.Row = 4;
+            app.PasswordEditField.Layout.Column = 2;
+
+            % Create DatabaseEditFieldLabel
+            app.DatabaseEditFieldLabel = uilabel(app.GridLayout4);
+            app.DatabaseEditFieldLabel.HorizontalAlignment = 'right';
+            app.DatabaseEditFieldLabel.Layout.Row = 5;
+            app.DatabaseEditFieldLabel.Layout.Column = 1;
+            app.DatabaseEditFieldLabel.Text = 'Database:';
+
+            % Create DatabaseEditField
+            app.DatabaseEditField = uieditfield(app.GridLayout4, 'text');
+            app.DatabaseEditField.Layout.Row = 5;
+            app.DatabaseEditField.Layout.Column = 2;
+
+            % Create Save_dbButton
+            app.Save_dbButton = uibutton(app.GridLayout4, 'push');
+            app.Save_dbButton.ButtonPushedFcn = createCallbackFcn(app, @Save_dbButtonPushed, true);
+            app.Save_dbButton.Layout.Row = 7;
+            app.Save_dbButton.Layout.Column = 2;
+            app.Save_dbButton.Text = 'Save';
+
+            % Create VariablesTab
+            app.VariablesTab = uitab(app.TabGroup);
+            app.VariablesTab.Title = 'Variables';
+
+            % Create GridLayout
+            app.GridLayout = uigridlayout(app.VariablesTab);
+            app.GridLayout.ColumnWidth = {'1x'};
+            app.GridLayout.RowHeight = {'10.03x', '1x', '1x'};
+            app.GridLayout.Padding = [0 10 0 10];
+
+            % Create GridLayout2
+            app.GridLayout2 = uigridlayout(app.GridLayout);
+            app.GridLayout2.ColumnWidth = {'1x', '1x', '1x'};
+            app.GridLayout2.RowHeight = {'1x'};
+            app.GridLayout2.Layout.Row = 3;
+            app.GridLayout2.Layout.Column = 1;
+
+            % Create LoadButton_var
+            app.LoadButton_var = uibutton(app.GridLayout2, 'push');
+            app.LoadButton_var.ButtonPushedFcn = createCallbackFcn(app, @LoadButton_varPushed, true);
+            app.LoadButton_var.Layout.Row = 1;
+            app.LoadButton_var.Layout.Column = 2;
+            app.LoadButton_var.Text = 'Load';
+
+            % Create SaveButton_var
+            app.SaveButton_var = uibutton(app.GridLayout2, 'push');
+            app.SaveButton_var.ButtonPushedFcn = createCallbackFcn(app, @SaveButton_varPushed, true);
+            app.SaveButton_var.Layout.Row = 1;
+            app.SaveButton_var.Layout.Column = 3;
+            app.SaveButton_var.Text = 'Save';
+
+            % Create ImportstructureButton
+            app.ImportstructureButton = uibutton(app.GridLayout2, 'push');
+            app.ImportstructureButton.ButtonPushedFcn = createCallbackFcn(app, @ImportstructureButtonPushed, true);
+            app.ImportstructureButton.Layout.Row = 1;
+            app.ImportstructureButton.Layout.Column = 1;
+            app.ImportstructureButton.Text = 'Import structure';
+
+            % Create VariablesTable
+            app.VariablesTable = uitable(app.GridLayout);
+            app.VariablesTable.ColumnName = {'Path'; 'Name'; 'Unit'; 'Correction'; 'Import'};
+            app.VariablesTable.RowName = {};
+            app.VariablesTable.ColumnEditable = [false true true true true];
+            app.VariablesTable.DisplayDataChangedFcn = createCallbackFcn(app, @VariablesTableDisplayDataChanged, true);
+            app.VariablesTable.Layout.Row = 1;
+            app.VariablesTable.Layout.Column = 1;
+
+            % Create Label2
+            app.Label2 = uilabel(app.GridLayout);
+            app.Label2.HorizontalAlignment = 'center';
+            app.Label2.Layout.Row = 2;
+            app.Label2.Layout.Column = 1;
+            app.Label2.Text = {'Please when referring the variable in correction field use "value", for example if you need to convert speed '; 'from km/h to m/s write " value / 3.6 " in correction field. For the constants names and values see Veichle tab'};
+
+            % Create VeichleTab
+            app.VeichleTab = uitab(app.TabGroup);
+            app.VeichleTab.Title = 'Veichle';
+
+            % Create GridLayout3
+            app.GridLayout3 = uigridlayout(app.VeichleTab);
+            app.GridLayout3.ColumnWidth = {'1x', '1x', '1x'};
+            app.GridLayout3.RowHeight = {'1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x', '1x'};
+
+            % Create enc_varEditFieldLabel
+            app.enc_varEditFieldLabel = uilabel(app.GridLayout3);
+            app.enc_varEditFieldLabel.HorizontalAlignment = 'right';
+            app.enc_varEditFieldLabel.Layout.Row = 2;
+            app.enc_varEditFieldLabel.Layout.Column = 1;
+            app.enc_varEditFieldLabel.Text = 'enc_var';
+
+            % Create enc_varEditField
+            app.enc_varEditField = uieditfield(app.GridLayout3, 'numeric');
+            app.enc_varEditField.ValueChangedFcn = createCallbackFcn(app, @enc_varEditFieldValueChanged, true);
+            app.enc_varEditField.Layout.Row = 2;
+            app.enc_varEditField.Layout.Column = 2;
+
+            % Create acc_varEditFieldLabel
+            app.acc_varEditFieldLabel = uilabel(app.GridLayout3);
+            app.acc_varEditFieldLabel.HorizontalAlignment = 'right';
+            app.acc_varEditFieldLabel.Layout.Row = 3;
+            app.acc_varEditFieldLabel.Layout.Column = 1;
+            app.acc_varEditFieldLabel.Text = 'acc_var';
+
+            % Create acc_varEditField
+            app.acc_varEditField = uieditfield(app.GridLayout3, 'numeric');
+            app.acc_varEditField.ValueChangedFcn = createCallbackFcn(app, @acc_varEditFieldValueChanged, true);
+            app.acc_varEditField.Layout.Row = 3;
+            app.acc_varEditField.Layout.Column = 2;
+
+            % Create R_rEditFieldLabel
+            app.R_rEditFieldLabel = uilabel(app.GridLayout3);
+            app.R_rEditFieldLabel.HorizontalAlignment = 'right';
+            app.R_rEditFieldLabel.Layout.Row = 4;
+            app.R_rEditFieldLabel.Layout.Column = 1;
+            app.R_rEditFieldLabel.Text = 'R_r';
+
+            % Create R_rEditField
+            app.R_rEditField = uieditfield(app.GridLayout3, 'numeric');
+            app.R_rEditField.ValueChangedFcn = createCallbackFcn(app, @R_rEditFieldValueChanged, true);
+            app.R_rEditField.Layout.Row = 4;
+            app.R_rEditField.Layout.Column = 2;
+
+            % Create R_fEditFieldLabel
+            app.R_fEditFieldLabel = uilabel(app.GridLayout3);
+            app.R_fEditFieldLabel.HorizontalAlignment = 'right';
+            app.R_fEditFieldLabel.Layout.Row = 5;
+            app.R_fEditFieldLabel.Layout.Column = 1;
+            app.R_fEditFieldLabel.Text = 'R_f';
+
+            % Create R_fEditField
+            app.R_fEditField = uieditfield(app.GridLayout3, 'numeric');
+            app.R_fEditField.ValueChangedFcn = createCallbackFcn(app, @R_fEditFieldValueChanged, true);
+            app.R_fEditField.Layout.Row = 5;
+            app.R_fEditField.Layout.Column = 2;
+
+            % Create W_fEditFieldLabel
+            app.W_fEditFieldLabel = uilabel(app.GridLayout3);
+            app.W_fEditFieldLabel.HorizontalAlignment = 'right';
+            app.W_fEditFieldLabel.Layout.Row = 6;
+            app.W_fEditFieldLabel.Layout.Column = 1;
+            app.W_fEditFieldLabel.Text = 'W_f';
+
+            % Create W_fEditField
+            app.W_fEditField = uieditfield(app.GridLayout3, 'numeric');
+            app.W_fEditField.ValueChangedFcn = createCallbackFcn(app, @W_fEditFieldValueChanged, true);
+            app.W_fEditField.Layout.Row = 6;
+            app.W_fEditField.Layout.Column = 2;
+
+            % Create LEditFieldLabel
+            app.LEditFieldLabel = uilabel(app.GridLayout3);
+            app.LEditFieldLabel.HorizontalAlignment = 'right';
+            app.LEditFieldLabel.Layout.Row = 8;
+            app.LEditFieldLabel.Layout.Column = 1;
+            app.LEditFieldLabel.Text = 'L';
+
+            % Create LEditField
+            app.LEditField = uieditfield(app.GridLayout3, 'numeric');
+            app.LEditField.ValueChangedFcn = createCallbackFcn(app, @LEditFieldValueChanged, true);
+            app.LEditField.Layout.Row = 8;
+            app.LEditField.Layout.Column = 2;
+
+            % Create LoadButton_vei
+            app.LoadButton_vei = uibutton(app.GridLayout3, 'push');
+            app.LoadButton_vei.ButtonPushedFcn = createCallbackFcn(app, @LoadButton_veiPushed, true);
+            app.LoadButton_vei.Layout.Row = 12;
+            app.LoadButton_vei.Layout.Column = 2;
+            app.LoadButton_vei.Text = 'Load';
+
+            % Create SaveButton_vei
+            app.SaveButton_vei = uibutton(app.GridLayout3, 'push');
+            app.SaveButton_vei.ButtonPushedFcn = createCallbackFcn(app, @SaveButton_veiPushed, true);
+            app.SaveButton_vei.Layout.Row = 12;
+            app.SaveButton_vei.Layout.Column = 3;
+            app.SaveButton_vei.Text = 'Save';
+
+            % Create W_rEditFieldLabel
+            app.W_rEditFieldLabel = uilabel(app.GridLayout3);
+            app.W_rEditFieldLabel.HorizontalAlignment = 'right';
+            app.W_rEditFieldLabel.Layout.Row = 7;
+            app.W_rEditFieldLabel.Layout.Column = 1;
+            app.W_rEditFieldLabel.Text = 'W_r';
+
+            % Create W_rEditField
+            app.W_rEditField = uieditfield(app.GridLayout3, 'numeric');
+            app.W_rEditField.Layout.Row = 7;
+            app.W_rEditField.Layout.Column = 2;
+
+            % Create ResampleTab
+            app.ResampleTab = uitab(app.TabGroup);
+            app.ResampleTab.Title = 'Resample';
+
+            % Create GridLayout6
+            app.GridLayout6 = uigridlayout(app.ResampleTab);
+            app.GridLayout6.ColumnWidth = {'1x'};
+            app.GridLayout6.RowHeight = {'1x', '8x', '1x'};
+
+            % Create ResLabel
+            app.ResLabel = uilabel(app.GridLayout6);
+            app.ResLabel.Layout.Row = 1;
+            app.ResLabel.Layout.Column = 1;
+            app.ResLabel.Text = {'Resample function allows to resample selected data, it will add zeros to set all timeseries to the same start time '; ''; 'and then it will resample data according to the biggest time vector.'};
+
+            % Create GridLayout7
+            app.GridLayout7 = uigridlayout(app.GridLayout6);
+            app.GridLayout7.ColumnWidth = {'1x', '1x', '1x'};
+            app.GridLayout7.RowHeight = {'1x'};
+            app.GridLayout7.Layout.Row = 3;
+            app.GridLayout7.Layout.Column = 1;
+
+            % Create SelectfileButton
+            app.SelectfileButton = uibutton(app.GridLayout7, 'push');
+            app.SelectfileButton.ButtonPushedFcn = createCallbackFcn(app, @SelectfileButtonPushed, true);
+            app.SelectfileButton.Layout.Row = 1;
+            app.SelectfileButton.Layout.Column = 1;
+            app.SelectfileButton.Text = 'Select file';
+
+            % Create ResampleButton
+            app.ResampleButton = uibutton(app.GridLayout7, 'push');
+            app.ResampleButton.ButtonPushedFcn = createCallbackFcn(app, @ResampleButtonPushed, true);
+            app.ResampleButton.Enable = 'off';
+            app.ResampleButton.Layout.Row = 1;
+            app.ResampleButton.Layout.Column = 3;
+            app.ResampleButton.Text = 'Resample';
+
+            % Create ResampleTable
+            app.ResampleTable = uitable(app.GridLayout6);
+            app.ResampleTable.ColumnName = {'Name'; 'Resample'};
+            app.ResampleTable.ColumnWidth = {'auto', 75};
+            app.ResampleTable.RowName = {};
+            app.ResampleTable.ColumnEditable = [false true];
+            app.ResampleTable.Layout.Row = 2;
+            app.ResampleTable.Layout.Column = 1;
+
+            % Show the figure after all components are created
+            app.ImporterUIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = main
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.ImporterUIFigure)
+
+            % Execute the startup function
+            runStartupFcn(app, @startupFcn)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.ImporterUIFigure)
+        end
+    end
+end]]></w:t></w:r></w:p></w:body></w:document>
